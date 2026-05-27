@@ -6,3 +6,135 @@ generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
 }
+
+model Agent {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  role            String
+  systemPrompt    String
+  model           String
+  temperature     Decimal  @default(0.7)
+  maxOutputTokens Int      @default(1024)
+  tools           String[] @default([])
+  skillIds        String[] @default([])
+  memory          Json
+  guardrails      Json
+  channels        String[] @default(["internal"])
+  scheduleCron    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Skill {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  description   String
+  instructions  String
+  requiredTools String[] @default([])
+  createdAt     DateTime @default(now())
+}
+
+model Workflow {
+  id            String        @id @default(uuid())
+  name          String        @unique
+  description   String
+  triggerType   String
+  triggerConfig Json
+  nodes         Json
+  edges         Json
+  entryNodeId   String
+  maxSteps      Int           @default(25)
+  isTemplate    Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  runs          WorkflowRun[]
+}
+
+model WorkflowRun {
+  id                    String            @id @default(uuid())
+  workflowId            String
+  workflow              Workflow          @relation(fields: [workflowId], references: [id])
+  status                String
+  triggerContext        Json
+  initialInput          String?
+  stepCount             Int               @default(0)
+  totalPromptTokens     Int               @default(0)
+  totalCompletionTokens Int               @default(0)
+  totalCostUsd          Decimal           @default(0)
+  startedAt             DateTime          @default(now())
+  completedAt           DateTime?
+  error                 String?
+  steps                 WorkflowStep[]
+  messages              WorkflowMessage[]
+  traces                AgentTrace[]
+
+  @@index([workflowId, startedAt])
+  @@index([status])
+}
+
+model WorkflowStep {
+  id           String            @id @default(uuid())
+  runId        String
+  run          WorkflowRun       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stepIndex    Int
+  nodeId       String
+  nodeType     String
+  agentId      String?
+  status       String
+  inputMessage String?
+  output       Json?
+  startedAt    DateTime          @default(now())
+  completedAt  DateTime?
+  error        String?
+  fromMessages WorkflowMessage[] @relation("FromStep")
+  toMessages   WorkflowMessage[] @relation("ToStep")
+
+  @@unique([runId, stepIndex])
+  @@index([runId, stepIndex])
+}
+
+model WorkflowMessage {
+  id          String        @id @default(uuid())
+  runId       String
+  run         WorkflowRun   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  fromStepId  String?
+  fromStep    WorkflowStep? @relation("FromStep", fields: [fromStepId], references: [id])
+  toStepId    String?
+  toStep      WorkflowStep? @relation("ToStep", fields: [toStepId], references: [id])
+  fromAgentId String?
+  toAgentId   String?
+  channel     String
+  content     String
+  createdAt   DateTime      @default(now())
+
+  @@index([runId, createdAt])
+}
+
+model AgentTrace {
+  id               String      @id @default(uuid())
+  runId            String
+  run              WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stepId           String
+  agentId          String
+  model            String
+  promptTokens     Int
+  completionTokens Int
+  costUsd          Decimal
+  latencyMs        Int
+  createdAt        DateTime    @default(now())
+
+  @@index([runId])
+  @@index([agentId, createdAt])
+}
+
+model Memory {
+  id               String                       @id @default(uuid())
+  namespace        String
+  content          String
+  embedding        Unsupported("vector(1536)")?
+  tags             String[]                     @default([])
+  createdByAgentId String
+  createdAt        DateTime                     @default(now())
+
+  @@index([namespace, createdAt])
+}
