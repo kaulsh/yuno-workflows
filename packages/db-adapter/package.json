@@ -1,8 +1,8 @@
 {
   "name": "@workspace/db-adapter",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
@@ -10,7 +10,7 @@
     "prisma:seed": "prisma db seed"
   },
   "exports": {
-    ".": "./generated/prisma/index.js"
+    ".": "./src/index.ts"
   },
   "keywords": [],
   "author": "",
