@@ -1,0 +1,16 @@
+{
+  "name": "yuno-assignment",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "pnpm --recursive test",
+    "compose:up": "docker compose up",
+    "compose:down": "docker compose down",
+    "compose:logs": "docker compose logs -f"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.13.1"
+}
