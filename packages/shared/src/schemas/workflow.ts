@@ -175,7 +175,6 @@ function validateTriggerAlignment(
   }
 }
 
-/** §11 edge-cardinality and graph integrity rules (also used by workflow builder). */
 export function validateWorkflowGraph(
   graph: WorkflowGraph,
   ctx: z.RefinementCtx,

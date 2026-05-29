@@ -38,8 +38,8 @@ export const RunEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("step.failed"),
     ...runEventBase,
-    stepId: UuidSchema,
-    nodeId: z.string().min(1),
+    stepId: UuidSchema.optional().nullable(),
+    nodeId: z.string().min(1).optional().nullable(),
     error: z.string(),
   }),
   z.object({

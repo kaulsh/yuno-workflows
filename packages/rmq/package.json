@@ -1,0 +1,24 @@
+{
+  "name": "@workspace/rmq",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@workspace/shared": "workspace:*",
+    "amqplib": "^2.0.1",
+    "nanoid": "^5.1.5",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.8",
+    "@types/node": "^22.15.21",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "pnpm@10.13.1"
+}
