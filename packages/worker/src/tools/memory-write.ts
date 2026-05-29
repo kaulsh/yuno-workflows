@@ -1,18 +1,10 @@
-import { z } from "zod";
+import { memoryWriteToolDef } from "@workspace/shared/tools";
 import { ToolDefinition } from "./types.js";
 
-const inputSchema = z.object({
-  content: z.string().min(1).describe("The information to store in memory."),
-  tags: z
-    .array(z.string())
-    .optional()
-    .describe("Optional tags for categorising this memory."),
-});
-
 export const memoryWriteTool = new ToolDefinition(
-  "memory.write",
-  "Persist a piece of information to agent memory so it can be recalled in future invocations.",
-  inputSchema,
+  memoryWriteToolDef.name,
+  memoryWriteToolDef.description,
+  memoryWriteToolDef.inputSchema,
   async (input, ctx): Promise<string> => {
     if (!ctx.memoryService) {
       return "Error: memory is not enabled for this agent.";

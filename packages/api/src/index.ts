@@ -1,29 +1,33 @@
 import { serve } from "@hono/node-server";
-import { Hono } from "hono";
-import { Pool } from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@workspace/db-adapter";
-import { MODELS } from "@workspace/shared";
+import {
+  createChannel,
+  createConnection,
+  declareWorkflowTopology,
+} from "@workspace/rmq";
+import { logger } from "@workspace/shared";
+import { createApp } from "./app.js";
+import { disconnectPrisma, prisma } from "./lib/prisma.js";
 
-const pool = new Pool({ connectionString: process.env["DATABASE_URL"] });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const port = Number(process.env["PORT"] ?? 3000);
+const rmqUrl = process.env["RABBITMQ_URL"] ?? "amqp://localhost";
 
-const app = new Hono();
+const rmq = await createConnection({ uri: rmqUrl });
+await declareWorkflowTopology(rmq);
+const publishChannel = await createChannel({ connection: rmq });
 
-app.get("/", (c) => {
-  return c.json({ message: "Hello from Yuno API" });
+const app = createApp({ prisma, rmq, publishChannel });
+
+serve({ fetch: app.fetch, port }, (info) => {
+  logger.info(`[api] listening on http://localhost:${info.port}`);
 });
 
-app.get("/health", async (c) => {
-  const agentCount = await prisma.agent.count();
-  return c.json({
-    status: "ok",
-    agentCount,
-    models: Object.keys(MODELS),
-  });
-});
+async function shutdown(): Promise<void> {
+  logger.info("[api] shutting down...");
+  await publishChannel.close();
+  await rmq.close();
+  await disconnectPrisma();
+  process.exit(0);
+}
 
-serve({ fetch: app.fetch, port: 3000 }, (info) => {
-  console.log(`API running on http://localhost:${info.port}`);
-});
+process.on("SIGINT", () => void shutdown());
+process.on("SIGTERM", () => void shutdown());

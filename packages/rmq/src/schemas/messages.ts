@@ -8,6 +8,7 @@ import { UuidSchema } from "@workspace/shared";
 
 export const WorkflowStartSchema = z.object({
   workflowId: UuidSchema,
+  runId: UuidSchema.optional(),
   initialInput: z.string().optional(),
   triggerContext: TriggerContextSchema,
 });

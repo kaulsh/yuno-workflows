@@ -1,14 +1,10 @@
-import { z } from "zod";
+import { messageSendToTelegramToolDef } from "@workspace/shared/tools";
 import { ToolDefinition } from "./types.js";
 
-const inputSchema = z.object({
-  text: z.string().min(1).describe("Message text to send to the Telegram chat."),
-});
-
 export const messageSendToTelegramTool = new ToolDefinition(
-  "message.send_to_telegram",
-  "Send a message to the Telegram chat that triggered this workflow run.",
-  inputSchema,
+  messageSendToTelegramToolDef.name,
+  messageSendToTelegramToolDef.description,
+  messageSendToTelegramToolDef.inputSchema,
   async (input, ctx): Promise<string> => {
     if (!ctx.sendTelegram || !ctx.triggerChatId) {
       return "Error: Telegram is not available for this run (no trigger chatId or bot not configured).";

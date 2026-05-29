@@ -1,14 +1,10 @@
-import { z } from "zod";
+import { httpFetchToolDef } from "@workspace/shared/tools";
 import { ToolDefinition } from "./types.js";
 
-const inputSchema = z.object({
-  url: z.string().url().describe("The URL to fetch (HTTP GET)."),
-});
-
 export const httpFetchTool = new ToolDefinition(
-  "http.fetch",
-  "Perform an HTTP GET request and return the response body as text.",
-  inputSchema,
+  httpFetchToolDef.name,
+  httpFetchToolDef.description,
+  httpFetchToolDef.inputSchema,
   async (input): Promise<string> => {
     try {
       const res = await fetch(input.url, {

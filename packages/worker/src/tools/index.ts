@@ -29,21 +29,6 @@ export const TOOLS_REGISTRY = Object.fromEntries(
 );
 
 /**
- * Returns a read-only view of all registered tools for the /api/tools endpoint.
- */
-export function listToolInfo(): Array<{
-  name: string;
-  description: string;
-  inputSchema: object;
-}> {
-  return ALL_TOOLS.map((t) => ({
-    name: t.name,
-    description: t.description,
-    inputSchema: t.inputSchema,
-  }));
-}
-
-/**
  * Resolves a set of tool names to LangChain DynamicStructuredTool instances
  * bound to the provided ToolContext.
  *

@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { z } from "zod";
+import { fsWriteToolDef } from "@workspace/shared/tools";
 import { ToolDefinition } from "./types.js";
 
 const WORKSPACE_ROOT = path.resolve(process.cwd(), "workspace");
@@ -14,15 +14,10 @@ function sandboxedPath(runId: string, filePath: string): string {
   return resolved;
 }
 
-const inputSchema = z.object({
-  path: z.string().min(1).describe("Relative file path within the run workspace"),
-  content: z.string().describe("Content to write to the file"),
-});
-
 export const fsWriteTool = new ToolDefinition(
-  "fs.write",
-  "Write content to a file in the run-scoped workspace directory. Creates parent directories as needed.",
-  inputSchema,
+  fsWriteToolDef.name,
+  fsWriteToolDef.description,
+  fsWriteToolDef.inputSchema,
   async (input, ctx) => {
     try {
       const resolved = sandboxedPath(ctx.runId, input.path);

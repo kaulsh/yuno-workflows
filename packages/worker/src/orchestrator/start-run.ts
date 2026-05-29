@@ -19,20 +19,29 @@ export async function handleWorkflowStart(
   { prisma }: WorkerDeps,
   publishChannel: ConfirmChannel,
 ): Promise<void> {
-  const { workflowId, initialInput, triggerContext } = msg;
+  const { workflowId, runId, initialInput, triggerContext } = msg;
 
   const workflow = await prisma.workflow.findUniqueOrThrow({
     where: { id: workflowId },
   });
 
-  const run = await prisma.workflowRun.create({
-    data: {
-      workflowId,
-      status: "pending",
-      triggerContext: triggerContext as object,
-      initialInput: initialInput ?? null,
-    },
-  });
+  const run = runId
+    ? await prisma.workflowRun.findUniqueOrThrow({ where: { id: runId } })
+    : await prisma.workflowRun.create({
+        data: {
+          workflowId,
+          status: "pending",
+          triggerContext: triggerContext as object,
+          initialInput: initialInput ?? null,
+        },
+      });
+
+  if (run.workflowId !== workflowId) {
+    throw new Error(`run ${run.id} does not belong to workflow ${workflowId}`);
+  }
+  if (run.status !== "pending") {
+    throw new Error(`run ${run.id} is not pending (status=${run.status})`);
+  }
 
   await StepJobPublisher(publishChannel).publish(
     {

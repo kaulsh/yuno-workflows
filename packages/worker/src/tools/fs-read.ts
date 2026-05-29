@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { z } from "zod";
+import { fsReadToolDef } from "@workspace/shared/tools";
 import { ToolDefinition } from "./types.js";
 
 const WORKSPACE_ROOT = path.resolve(process.cwd(), "workspace");
@@ -14,14 +14,10 @@ function sandboxedPath(runId: string, filePath: string): string {
   return resolved;
 }
 
-const inputSchema = z.object({
-  path: z.string().min(1).describe("Relative file path within the run workspace"),
-});
-
 export const fsReadTool = new ToolDefinition(
-  "fs.read",
-  "Read the contents of a file from the run-scoped workspace directory.",
-  inputSchema,
+  fsReadToolDef.name,
+  fsReadToolDef.description,
+  fsReadToolDef.inputSchema,
   async (input, ctx) => {
     try {
       const resolved = sandboxedPath(ctx.runId, input.path);

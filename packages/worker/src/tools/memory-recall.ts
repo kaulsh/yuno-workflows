@@ -1,20 +1,10 @@
-import { z } from "zod";
+import { memoryRecallToolDef } from "@workspace/shared/tools";
 import { ToolDefinition } from "./types.js";
 
-const inputSchema = z.object({
-  query: z.string().min(1).describe("The query to search memory for."),
-  k: z
-    .number()
-    .int()
-    .positive()
-    .optional()
-    .describe("Number of memories to retrieve. Defaults to the agent's configured k."),
-});
-
 export const memoryRecallTool = new ToolDefinition(
-  "memory.recall",
-  "Search agent memory for relevant past information using semantic similarity or recency ordering.",
-  inputSchema,
+  memoryRecallToolDef.name,
+  memoryRecallToolDef.description,
+  memoryRecallToolDef.inputSchema,
   async (input, ctx): Promise<string> => {
     if (!ctx.memoryService) {
       return "Error: memory is not enabled for this agent.";
