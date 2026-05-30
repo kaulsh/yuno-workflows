@@ -24,7 +24,9 @@ export interface NextEdgeResult {
 export function resolveNextEdges(
   node: WorkflowNode,
   allEdges: WorkflowEdge[],
-  predecessorOutput: Record<string, unknown>,
+  predecessorOutput:
+    | { branch: "true" | "false"; predecessorOutput: Record<string, unknown> }
+    | Record<string, unknown>,
 ): NextEdgeResult[] {
   const outgoing = allEdges.filter((e) => e.source === node.id);
 
@@ -41,6 +43,18 @@ export function resolveNextEdges(
   }
 
   if (node.type === "condition") {
+    if ("branch" in predecessorOutput) {
+      const chosen = outgoing.find(
+        (e) => e.branch === predecessorOutput.branch,
+      );
+      if (!chosen) {
+        throw new Error(
+          `Condition node "${node.id}" has no outgoing edge for branch "${predecessorOutput.branch}"`,
+        );
+      }
+      return [{ nextNodeId: chosen.target, edge: chosen }];
+    }
+
     const branch = evalConditionBranch(node.expression, predecessorOutput);
 
     const chosen = outgoing.find((e) => e.branch === branch);

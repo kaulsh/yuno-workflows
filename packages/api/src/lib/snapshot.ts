@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@workspace/db-adapter";
-import type { RunSnapshot } from "@workspace/shared";
+import { parseStoredRunEvent, type RunSnapshot } from "@workspace/shared";
 import {
   serializeMessage,
   serializeRun,
@@ -17,6 +17,7 @@ export async function loadRunSnapshot(
       steps: { orderBy: { stepIndex: "asc" } },
       messages: { orderBy: { createdAt: "asc" } },
       traces: { orderBy: { createdAt: "asc" } },
+      events: { orderBy: { at: "asc" } },
     },
   });
 
@@ -27,5 +28,6 @@ export async function loadRunSnapshot(
     steps: run.steps.map(serializeStep),
     messages: run.messages.map(serializeMessage),
     traces: run.traces.map(serializeTrace),
+    events: run.events.map((row) => parseStoredRunEvent(row.payload)),
   };
 }

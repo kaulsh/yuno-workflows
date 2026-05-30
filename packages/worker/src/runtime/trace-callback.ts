@@ -1,11 +1,7 @@
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { LLMResult } from "@langchain/core/outputs";
 import type { Serialized } from "@langchain/core/load/serializable";
-import {
-  computeCostUsd,
-  logger,
-  type RunEvent,
-} from "@workspace/shared";
+import { computeCostUsd, logger, type RunEvent } from "@workspace/shared";
 import { normalizeTokenUsage } from "../llm/normalize-tokens.js";
 import type { RunContext } from "./run-context.js";
 
@@ -31,6 +27,8 @@ export class TraceCallbackHandler extends BaseCallbackHandler {
     costUsd: 0,
   };
   private llmStartMs = 0;
+  /** Maps LangChain tool-invocation runId → resolved tool name. */
+  private toolNames = new Map<string, string>();
 
   constructor(
     private readonly ctx: RunContext,
@@ -84,11 +82,26 @@ export class TraceCallbackHandler extends BaseCallbackHandler {
     }
   }
 
-  async handleToolStart(tool: Serialized, input: string): Promise<void> {
-    const toolName =
-      typeof tool === "object" && "name" in tool
-        ? String(tool.name)
-        : "unknown";
+  async handleToolStart(
+    tool: Serialized,
+    input: string,
+    toolRunId?: string,
+    _parentRunId?: string,
+    _tags?: string[],
+    _metadata?: Record<string, unknown>,
+    runName?: string,
+  ): Promise<void> {
+    // LangChain passes the tool's display name as `runName` (v1+). Fall back
+    // to kwargs.name (how DynamicStructuredTool serialises) then "unknown".
+    const serializedKwargsName =
+      typeof tool === "object" &&
+      tool !== null &&
+      "kwargs" in tool &&
+      typeof (tool as { kwargs?: { name?: unknown } }).kwargs?.name === "string"
+        ? String((tool as unknown as { kwargs: { name: string } }).kwargs.name)
+        : undefined;
+    const toolName = runName ?? serializedKwargsName ?? "unknown";
+    if (toolRunId) this.toolNames.set(toolRunId, toolName);
     try {
       await this.deps.publishEvent({
         type: "tool.called",
@@ -104,13 +117,29 @@ export class TraceCallbackHandler extends BaseCallbackHandler {
   }
 
   async handleToolEnd(
-    output: string,
-    _runId: string,
+    output: unknown,
+    toolRunId?: string,
     _parentRunId?: string,
-    tags?: string[],
   ): Promise<void> {
-    const toolName =
-      tags?.find((t) => t.startsWith("tool:"))?.slice(5) ?? "unknown";
+    const toolName = (toolRunId && this.toolNames.get(toolRunId)) ?? "unknown";
+    if (toolRunId) this.toolNames.delete(toolRunId);
+
+    // LangChain may pass a ToolMessage object rather than a plain string.
+    // Normalise to a string so JsonValueSchema validation passes.
+    let normalizedOutput: string;
+    if (typeof output === "string") {
+      normalizedOutput = output;
+    } else if (
+      output !== null &&
+      typeof output === "object" &&
+      "content" in output
+    ) {
+      const content = (output as { content: unknown }).content;
+      normalizedOutput =
+        typeof content === "string" ? content : JSON.stringify(content);
+    } else {
+      normalizedOutput = JSON.stringify(output);
+    }
     try {
       await this.deps.publishEvent({
         type: "tool.result",
@@ -118,7 +147,7 @@ export class TraceCallbackHandler extends BaseCallbackHandler {
         at: new Date().toISOString(),
         stepId: this.ctx.stepId,
         toolName,
-        output,
+        output: normalizedOutput,
       });
     } catch (err) {
       logger.error({ err }, "[trace] failed to publish tool.result");

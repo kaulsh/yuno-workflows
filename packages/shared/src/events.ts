@@ -6,7 +6,7 @@ import {
   JsonValueSchema,
   UuidSchema,
 } from "./schemas/common.js";
-import { RunSnapshotSchema, TokenUsageSchema } from "./schemas/run.js";
+import { TokenUsageSchema } from "./schemas/run.js";
 
 const runEventBase = {
   runId: UuidSchema,
@@ -17,7 +17,8 @@ export const RunEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("snapshot"),
     runId: UuidSchema,
-    payload: RunSnapshotSchema,
+    /** Validated at API/SSE boundaries via `RunSnapshotSchema`. */
+    payload: z.unknown(),
   }),
   z.object({
     type: z.literal("step.started"),
@@ -75,3 +76,17 @@ export const RunEventSchema = z.discriminatedUnion("type", [
 
 export type RunEvent = z.infer<typeof RunEventSchema>;
 export type RunEventType = RunEvent["type"];
+
+/** Run events persisted in DB and streamed live (excludes the synthetic snapshot). */
+export type StoredRunEvent = Exclude<RunEvent, { type: "snapshot" }>;
+
+export function parseStoredRunEvent(payload: unknown): StoredRunEvent {
+  const event = RunEventSchema.parse(payload);
+  if (event.type === "snapshot") {
+    throw new Error("snapshot events are not stored");
+  }
+  return event;
+}
+
+export const StoredRunEventSchema: z.ZodType<StoredRunEvent> =
+  RunEventSchema.refine((e): e is StoredRunEvent => e.type !== "snapshot");

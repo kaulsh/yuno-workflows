@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import type { Channel, ChannelModel } from "amqplib";
 import type { PrismaClient } from "@workspace/db-adapter";
 import { EX_RUN_EVENTS } from "@workspace/rmq";
-import { RunEventSchema, logger } from "@workspace/shared";
+import { RunEventSchema, RunSnapshotSchema, logger } from "@workspace/shared";
 import { loadRunSnapshot } from "../lib/snapshot.js";
 
 const encoder = new TextEncoder();
@@ -45,7 +45,7 @@ export async function createRunStreamHandler(
         sseData({
           type: "snapshot",
           runId,
-          payload: snapshot,
+          payload: RunSnapshotSchema.parse(snapshot),
         }),
       );
 

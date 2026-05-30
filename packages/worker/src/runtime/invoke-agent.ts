@@ -47,11 +47,29 @@ function buildSystemPrompt(
   return [
     agent.systemPrompt,
     `## Role\n${agent.role}`,
-    skills.length
-      ? `## Skills\n${skills.map((s) => s.instructions).join("\n\n")}`
-      : "",
+    skills.length === 1
+      ? `## Skills\nYou have one skill available ("${skills[0].name}"). Call the \`load_skill\` tool to load its instructions before applying skill-specific guidance.`
+      : skills.length > 1
+        ? [
+            "## Skills",
+            ...skills.map(
+              (s) =>
+                `- **${s.name}**\n  ${s.instructions.replace(/\n/g, "\n  ")}`
+            ),
+          ].join("\n\n")
+   
+        : "",
     memoryContext.length
-      ? `## Relevant memory\n${memoryContext.map((m) => `- ${m.content}`).join("\n")}`
+      ? `## Relevant memory\n${memoryContext
+          .map((m) => {
+            const MAX_ITEM = 2_000;
+            const content =
+              m.content.length > MAX_ITEM
+                ? m.content.slice(0, MAX_ITEM) + " [truncated]"
+                : m.content;
+            return `- ${content}`;
+          })
+          .join("\n")}`
       : "",
     `## Current task\n${task}`,
   ]
@@ -132,6 +150,8 @@ export async function invokeAgent(
       ? String(ctx.triggerContext.chatId)
       : null;
 
+  const singleSkill = skills.length === 1 ? skills[0] : null;
+
   const toolCtx: ToolContext = {
     runId: ctx.runId,
     stepId: ctx.stepId,
@@ -142,12 +162,20 @@ export async function invokeAgent(
     memoryK: memCfg.k,
     triggerChatId,
     sendTelegram: telegramEnabled ? deps.sendTelegram : null,
+    loadableSkill: singleSkill
+      ? {
+          name: singleSkill.name,
+          description: singleSkill.description,
+          instructions: singleSkill.instructions,
+        }
+      : null,
   };
 
-  // Always inject memory tools when enabled, telegram tool when telegram channel
+  // Runtime-only tools: memory, telegram, load_skill (single skill)
   const extraToolNames: string[] = [];
-  if (memCfg.enabled) extraToolNames.push("memory.recall", "memory.write");
-  if (telegramEnabled) extraToolNames.push("message.send_to_telegram");
+  if (memCfg.enabled) extraToolNames.push("memory_recall", "memory_write");
+  if (telegramEnabled) extraToolNames.push("message_send_to_telegram");
+  if (singleSkill) extraToolNames.push("load_skill");
 
   const tools = resolveTools(
     unique([...toolNames, ...extraToolNames]),
@@ -177,11 +205,12 @@ export async function invokeAgent(
       : {}),
   });
 
+  const humanContent = inboundMessage.trim() || node.task;
+
   const result = await lcAgent.invoke(
-    { messages: [new HumanMessage(inboundMessage)] },
+    { messages: [new HumanMessage(humanContent)] },
     {
       callbacks: [traceHandler],
-      recursionLimit: 10,
     },
   );
 

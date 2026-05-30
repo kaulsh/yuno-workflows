@@ -19,6 +19,13 @@ export interface ToolContext {
   // Telegram outbound (null when agent.channels doesn't include 'telegram')
   triggerChatId: string | null;
   sendTelegram: ((chatId: string, text: string) => Promise<void>) | null;
+
+  /** Set when exactly one skill is attached; powers the runtime-only `load_skill` tool. */
+  loadableSkill: {
+    name: string;
+    description: string;
+    instructions: string;
+  } | null;
 }
 
 export class ToolDefinition<TInput extends z.ZodType = z.ZodType> {

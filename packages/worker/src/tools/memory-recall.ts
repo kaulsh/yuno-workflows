@@ -23,9 +23,22 @@ export const memoryRecallTool = new ToolDefinition(
         return "No relevant memories found.";
       }
 
-      return items
-        .map((item, i) => `[${i + 1}] ${item.content}`)
-        .join("\n\n");
+      const MAX_ITEM_CHARS = 2_000;
+      const MAX_TOTAL_CHARS = 10_000;
+
+      const formatted = items.map((item, i) => {
+        const content =
+          item.content.length > MAX_ITEM_CHARS
+            ? item.content.slice(0, MAX_ITEM_CHARS) + " [truncated]"
+            : item.content;
+        return `[${i + 1}] ${content}`;
+      });
+
+      const joined = formatted.join("\n\n");
+      if (joined.length > MAX_TOTAL_CHARS) {
+        return joined.slice(0, MAX_TOTAL_CHARS) + "\n\n[further memories truncated — total limit reached]";
+      }
+      return joined;
     } catch (err) {
       return `Error: ${err instanceof Error ? err.message : String(err)}`;
     }

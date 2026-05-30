@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "pnpm --recursive test",
+    "start:be": "export FORCE_COLOR=1 && pnpm run --stream --filter @workspace/* start",
+    "start:fe": "pnpm --filter web dev",
     "compose:up": "docker compose up",
     "compose:down": "docker compose down",
     "compose:logs": "docker compose logs -f"

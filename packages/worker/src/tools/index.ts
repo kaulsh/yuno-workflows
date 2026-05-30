@@ -8,6 +8,8 @@ import { httpFetchTool } from "./http-fetch.js";
 import { memoryRecallTool } from "./memory-recall.js";
 import { memoryWriteTool } from "./memory-write.js";
 import { messageSendToTelegramTool } from "./message-send-to-telegram.js";
+import { webSearchTool } from "./web-search.js";
+import { loadSkillTool } from "./load-skill.js";
 
 const ALL_TOOLS = [
   fsReadTool,
@@ -17,6 +19,8 @@ const ALL_TOOLS = [
   memoryRecallTool,
   memoryWriteTool,
   messageSendToTelegramTool,
+  webSearchTool,
+  loadSkillTool,
 ];
 
 /**

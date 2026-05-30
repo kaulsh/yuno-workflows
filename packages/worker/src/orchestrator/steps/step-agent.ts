@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@workspace/db-adapter";
 import type { Agent, ModelId } from "@workspace/shared";
-import { publishRunEvent, type ConfirmChannel } from "@workspace/rmq";
+import type { ConfirmChannel } from "@workspace/rmq";
+import { emitRunEvent } from "../../lib/emit-run-event.js";
 import { invokeAgent, type AgentNode } from "../../runtime/invoke-agent.js";
 import type { RunContext } from "../../runtime/run-context.js";
 import type { ExecuteAgentStepParams } from "./context.js";
@@ -58,8 +59,10 @@ export async function executeAgentStep({
         void (await prisma.agentTrace.create({
           data: { ...data, costUsd: data.costUsd },
         })),
-      publishEvent: async (event) =>
-        void (await publishRunEvent(publishChannel, event.runId, event)),
+      publishEvent: async (event) => {
+        if (event.type === "snapshot") return;
+        await emitRunEvent(prisma, publishChannel, event);
+      },
     },
   );
 
@@ -95,7 +98,7 @@ export async function executeAgentStep({
     channel: "internal",
   });
 
-  await publishRunEvent(publishChannel, runId, {
+  await emitRunEvent(prisma, publishChannel, {
     type: "step.completed",
     runId,
     at: new Date().toISOString(),
@@ -132,12 +135,12 @@ async function persistMessage(
       content: data.content,
     },
   });
-  await publishRunEvent(publishChannel, data.runId, {
+  await emitRunEvent(prisma, publishChannel, {
     type: "message.sent",
     runId: data.runId,
     at: new Date().toISOString(),
     fromAgentId: data.fromAgentId,
     channel: data.channel as "internal" | "telegram",
     content: data.content,
-  }).catch(() => {});
+  });
 }

@@ -8,11 +8,13 @@ import { logger } from "@workspace/shared";
 import { resolveNextEdges } from "./next-edges.js";
 import {
   StepJobPublisher,
-  publishRunEvent,
   type StepJob,
   type ConfirmChannel,
+  type ConsumeContext,
   DiscardException,
+  DELAYS_MS,
 } from "@workspace/rmq";
+import { emitRunEvent } from "../lib/emit-run-event.js";
 import { Prisma } from "@workspace/db-adapter";
 import { executeEndStep } from "./steps/step-end.js";
 import { executeConditionStep } from "./steps/step-condition.js";
@@ -40,6 +42,7 @@ export type { StepJob };
 export async function processStepJob(
   job: StepJob,
   deps: OrchestratorDeps,
+  ctx?: ConsumeContext & { maxRetries?: number },
 ): Promise<void> {
   const { runId, currentNodeId, inboundMessage, stepIndex } = job;
   const { prisma, publishChannel } = deps;
@@ -91,7 +94,7 @@ export async function processStepJob(
     inboundMessage,
   });
 
-  await publishRunEvent(publishChannel, runId, {
+  await emitRunEvent(prisma, publishChannel, {
     type: "step.started",
     runId: run.id,
     at: new Date().toISOString(),
@@ -111,7 +114,7 @@ export async function processStepJob(
           totalCompletionTokens: run.totalCompletionTokens,
           totalCostUsd: run.totalCostUsd,
         },
-        step: { id: step.id },
+        step: { id: step.id, nodeId: currentNodeId },
       });
       return;
     }
@@ -180,7 +183,7 @@ export async function processStepJob(
       data: { status: "failed", error: stepError, completedAt: new Date() },
     });
 
-    await publishRunEvent(publishChannel, runId, {
+    await emitRunEvent(prisma, publishChannel, {
       type: "step.failed",
       runId,
       at: new Date().toISOString(),
@@ -188,6 +191,14 @@ export async function processStepJob(
       nodeId: currentNodeId,
       error: stepError,
     });
+
+    // If this is the final delivery attempt (retry budget exhausted), mark the
+    // run as failed so it doesn't stay stuck in "running" indefinitely.
+    const maxRetries = ctx?.maxRetries ?? DELAYS_MS.length;
+    const retryCount = ctx?.retryCount ?? 0;
+    if (retryCount >= maxRetries) {
+      await failRun(prisma, publishChannel, run.id, stepError);
+    }
 
     throw err;
   }
@@ -261,12 +272,12 @@ async function failRun(
     where: { id: runId },
     data: { status: "failed", error, completedAt: new Date() },
   });
-  await publishRunEvent(publishChannel, runId, {
+  await emitRunEvent(prisma, publishChannel, {
     type: "step.failed",
     runId,
     at: new Date().toISOString(),
     error,
-  }).catch(() => {});
+  });
 }
 
 function extractMessageForNextStep(

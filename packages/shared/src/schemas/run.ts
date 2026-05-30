@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { parseStoredRunEvent, type StoredRunEvent } from "../events.js";
 import { ChannelSchema, ModelIdSchema } from "./agent.js";
 import {
   IsoDateTimeSchema,
@@ -92,6 +93,12 @@ export const RunSnapshotSchema = z.object({
   steps: z.array(WorkflowStepSchema),
   messages: z.array(WorkflowMessageSchema),
   traces: z.array(AgentTraceSchema),
+  events: z.array(
+    z.custom<StoredRunEvent>((val) => {
+      parseStoredRunEvent(val);
+      return true;
+    }),
+  ),
 });
 
 export const ListRunsQuerySchema = z.object({

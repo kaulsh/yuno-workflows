@@ -1,5 +1,5 @@
-import type { EventSubscriberDef } from "@workspace/rmq";
-import { StepJobDefinition } from "@workspace/rmq";
+import type { EventSubscriberDef, ConsumeContext } from "@workspace/rmq";
+import { StepJobDefinition, DELAYS_MS } from "@workspace/rmq";
 import type { StepJob } from "@workspace/rmq";
 import type { ConfirmChannel } from "amqplib";
 import { processStepJob } from "../orchestrator/run-step.js";
@@ -14,13 +14,21 @@ export function StepJobSubscriber(
     event: StepJobDefinition,
     routingKey: "step",
     prefetch: 5,
-    async consume(payload: StepJob, publisherChannel: ConfirmChannel) {
-      await processStepJob(payload, {
-        prisma,
-        memoryService,
-        publishChannel: publisherChannel,
-        sendTelegram: getSendTelegram(),
-      });
+    async consume(
+      payload: StepJob,
+      publisherChannel: ConfirmChannel,
+      ctx: ConsumeContext,
+    ) {
+      await processStepJob(
+        payload,
+        {
+          prisma,
+          memoryService,
+          publishChannel: publisherChannel,
+          sendTelegram: getSendTelegram(),
+        },
+        { ...ctx, maxRetries: DELAYS_MS.length },
+      );
     },
   };
 }

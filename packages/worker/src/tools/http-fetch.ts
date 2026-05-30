@@ -26,7 +26,15 @@ export const httpFetchTool = new ToolDefinition(
         return `Error: unsupported content-type '${contentType}'. Only text, JSON, and XML are returned.`;
       }
 
-      return await res.text();
+      const MAX_CHARS = 20_000;
+      const text = await res.text();
+      if (text.length > MAX_CHARS) {
+        return (
+          text.slice(0, MAX_CHARS) +
+          `\n\n[truncated — response exceeded ${MAX_CHARS} chars]`
+        );
+      }
+      return text;
     } catch (err) {
       return `Error: ${err instanceof Error ? err.message : String(err)}`;
     }

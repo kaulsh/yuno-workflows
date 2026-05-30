@@ -71,5 +71,5 @@ export interface ExecuteConditionStepParams {
 export interface ExecuteEndStepParams {
   deps: OrchestratorDeps;
   run: WorkflowRunCompletionContext;
-  step: Pick<WorkflowStepContext, "id">;
+  step: Pick<WorkflowStepContext, "id" | "nodeId">;
 }
