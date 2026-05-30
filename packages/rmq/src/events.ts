@@ -11,6 +11,31 @@ import {
 import { DiscardException } from "./errors/discard-exception.js";
 import { RetryException } from "./errors/retry-exception.js";
 
+/**
+ * Naming conventions used by executeEventSubscriber to build topology from
+ * an EventDefinition automatically:
+ *
+ *   exchange name  →  queue name       →  DLX exchange     →  DLX queue
+ *   "workflow.start"  "workflow.start.q"  "workflow.dlx"   "workflow.dlx.q"
+ *   "workflow.steps"  "workflow.steps.q"  "workflow.dlx"   "workflow.dlx.q"
+ *   "task.jobs"       "task.jobs.q"       "task.dlx"       "task.dlx.q"
+ *
+ * The namespace prefix (first dot-segment) is shared across all exchanges in
+ * the same logical group, so they share one DLX exchange/queue.
+ */
+export function queueForExchange(exchangeName: string): string {
+  return `${exchangeName}.q`;
+}
+
+export function dlxExchangeForQueue(queueName: string): string {
+  const prefix = queueName.split(".")[0] ?? queueName;
+  return `${prefix}.dlx`;
+}
+
+export function dlxQueueForQueue(queueName: string): string {
+  return `${dlxExchangeForQueue(queueName)}.q`;
+}
+
 /** Minimal schema contract — duck-typed so any Zod schema satisfies it. */
 export interface Schema<T> {
   parse(data: unknown): T;
@@ -24,9 +49,9 @@ export interface Schema<T> {
  * For dynamic routing keys (e.g. `run.<runId>.#`), leave `routingKeys` empty
  * and pass `opts.routingKey` to `executeEventSubscriber`.
  *
- * `exchangeName` is required and must match the exchange declared in
- * `declareWorkflowTopology`. We bypass the naming-convention generator from
- * the source monorepo and hardcode DESIGN.md names directly.
+ * `exchangeName` drives the entire topology when used with
+ * `executeEventSubscriber`: the queue name, DLX exchange, and DLX queue are
+ * all derived from it automatically via the helpers above.
  */
 export interface EventDefinition<T, K extends string = string> {
   name: string;
@@ -79,8 +104,6 @@ export interface EventSubscriberDef<T> {
   event: EventDefinition<T, string>;
   /** Routing key to bind. Can include AMQP wildcards (* #). */
   routingKey: string;
-  /** Queue to assert and consume from. */
-  queueName: string;
   /** Channel prefetch count. Defaults to 1. */
   prefetch?: number;
   consume: (
@@ -101,8 +124,6 @@ export interface SubscribeOptions {
   queueName?: string;
   /** Override routing key (needed for wildcard SSE bindings). */
   routingKey?: string;
-  /** Set to false to disable the TTL retry pipeline. Default: true. */
-  enableRetry?: boolean;
   /**
    * Hard cap on retry attempts before the message is discarded to DLX.
    * Defaults to DELAYS_MS.length (3 for the 1s/5s/25s ladder).
@@ -113,11 +134,13 @@ export interface SubscribeOptions {
 /**
  * Bootstraps one subscriber on a dedicated channel pair (consumer + publisher).
  *
- * - Consumer channel: prefetch-limited, consumes `queueName`.
- * - Publisher channel: a second confirm channel passed to each `consume`
- *   handler so handlers can chain-publish events without blocking consumer ack.
- * - On channel `error`: recursively restarts the subscriber (new channels +
- *   new binding + new consumer).
+ * Topology is derived automatically from the EventDefinition:
+ *   - Exchange: `event.exchangeName`
+ *   - Queue:    `event.exchangeName + ".q"` (override via `subscriber.queueName` or `opts.queueName`)
+ *   - DLX:     `{namespace}.dlx` / `{namespace}.dlx.q` (asserted when `enableRetry` is true)
+ *
+ * No separate topology declaration step is needed — calling this function for
+ * each subscriber in `main.ts` is sufficient to bring up the full topology.
  *
  * For transient (SSE) subscribers, pass `opts` with `durable: false`,
  * `exclusive: true`, `autoDelete: true`, `enableRetry: false`, and a unique
@@ -131,15 +154,14 @@ export async function executeEventSubscriber<T>(
   subscriber: EventSubscriberDef<T>,
   opts?: SubscribeOptions,
 ): Promise<() => Promise<void>> {
-  const queueName = opts?.queueName ?? subscriber.queueName;
+  const exchangeName = subscriber.event.exchangeName;
+  const exchangeType = subscriber.event.exchangeType ?? "direct";
+  const queueName = opts?.queueName ?? queueForExchange(exchangeName);
   const routingKey = opts?.routingKey ?? subscriber.routingKey;
   const durable = opts?.durable ?? true;
   const exclusive = opts?.exclusive ?? false;
   const autoDelete = opts?.autoDelete ?? false;
-  const enableRetry = opts?.enableRetry ?? true;
   const maxRetries = opts?.maxRetries ?? DELAYS_MS.length;
-  const exchangeName = subscriber.event.exchangeName;
-  const exchangeType = subscriber.event.exchangeType ?? "topic";
 
   logger.info(
     { queueName, exchangeName, routingKey },
@@ -147,11 +169,23 @@ export async function executeEventSubscriber<T>(
   );
 
   const ch = await connection.createConfirmChannel();
+
+  const dlxExchange = dlxExchangeForQueue(queueName);
+  const dlxQueue = dlxQueueForQueue(queueName);
+  await ch.assertExchange(dlxExchange, "direct", { durable: true });
+  await ch.assertQueue(dlxQueue, { durable: true });
+  await ch.bindQueue(dlxQueue, dlxExchange, "#");
+
   await ch.assertExchange(exchangeName, exchangeType, {
     durable: true,
     autoDelete: false,
   });
-  await ch.assertQueue(queueName, { durable, exclusive, autoDelete });
+  await ch.assertQueue(queueName, {
+    durable,
+    exclusive,
+    autoDelete,
+    arguments: { "x-dead-letter-exchange": dlxExchangeForQueue(queueName) },
+  });
   await ch.bindQueue(queueName, exchangeName, routingKey);
   await ch.prefetch(subscriber.prefetch ?? 1);
 
@@ -207,7 +241,7 @@ export async function executeEventSubscriber<T>(
 
       logger.error({ err, messageId, queueName }, `[rmq:sub] handler error`);
 
-      if (!enableRetry || retryCount >= maxRetries) {
+      if (retryCount >= maxRetries) {
         logger.error(
           { messageId, retryCount, maxRetries },
           `[rmq:sub] retry budget exhausted — sending to DLX`,

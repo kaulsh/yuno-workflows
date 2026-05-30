@@ -1,4 +1,4 @@
-import { listAllModels, MODELS, type AvailableModel } from "@workspace/shared";
+import { listAllModels, type AvailableModel } from "@workspace/shared";
 
 const PROVIDER_ENV: Record<
   AvailableModel["provider"],
@@ -9,10 +9,7 @@ const PROVIDER_ENV: Record<
   google: process.env["GOOGLE_API_KEY"],
 };
 
-/* Get models from the shared library but only send those that would be enabled via env keys */
+/** Only models whose provider API key is configured (optional providers stay hidden otherwise). */
 export function listAvailableModels(): AvailableModel[] {
-  return listAllModels().filter((m) => {
-    if (!MODELS[m.id].optional) return true;
-    return Boolean(PROVIDER_ENV[m.provider]);
-  });
+  return listAllModels().filter((m) => Boolean(PROVIDER_ENV[m.provider]));
 }

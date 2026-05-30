@@ -1,18 +1,14 @@
 import { serve } from "@hono/node-server";
-import {
-  createChannel,
-  createConnection,
-  declareWorkflowTopology,
-} from "@workspace/rmq";
+import { createChannel, createConnection } from "@workspace/rmq";
 import { logger } from "@workspace/shared";
 import { createApp } from "./app.js";
-import { disconnectPrisma, prisma } from "./lib/prisma.js";
+import { disconnectPrisma, prisma } from "./lib/prisma.ts";
 
 const port = Number(process.env["PORT"] ?? 3000);
 const rmqUrl = process.env["RABBITMQ_URL"] ?? "amqp://localhost";
 
 const rmq = await createConnection({ uri: rmqUrl });
-await declareWorkflowTopology(rmq);
+
 const publishChannel = await createChannel({ connection: rmq });
 
 const app = createApp({ prisma, rmq, publishChannel });

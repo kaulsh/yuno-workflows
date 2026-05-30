@@ -2,13 +2,9 @@ import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@workspace/db-adapter";
 import { logger } from "@workspace/shared";
-import {
-  createConnection,
-  declareWorkflowTopology,
-  executeEventSubscriber,
-} from "@workspace/rmq";
-import { makeWorkflowStartSubscriber } from "./subscribers/workflow-start.subscriber.js";
-import { makeStepJobSubscriber } from "./subscribers/step-job.subscriber.js";
+import { createConnection, executeEventSubscriber } from "@workspace/rmq";
+import { WorkflowStartSubscriber } from "./subscribers/workflow-start.subscriber.js";
+import { StepJobSubscriber } from "./subscribers/step-job.subscriber.js";
 import type { WorkerDeps } from "./orchestrator/steps/context.js";
 import { MemoryService } from "./memory/index.js";
 import {
@@ -33,8 +29,8 @@ const deps: WorkerDeps = {
   logger.info("[worker] starting");
 
   const rmqUrl = process.env["RABBITMQ_URL"] ?? "amqp://localhost";
+
   const conn = await createConnection({ uri: rmqUrl });
-  await declareWorkflowTopology(conn);
 
   const telegramToken = process.env["TELEGRAM_BOT_TOKEN"];
   if (telegramToken) {
@@ -50,8 +46,8 @@ const deps: WorkerDeps = {
   startScheduler(deps, await conn.createConfirmChannel());
 
   await Promise.all([
-    executeEventSubscriber(conn, makeWorkflowStartSubscriber(deps)),
-    executeEventSubscriber(conn, makeStepJobSubscriber(deps)),
+    executeEventSubscriber(conn, WorkflowStartSubscriber(deps)),
+    executeEventSubscriber(conn, StepJobSubscriber(deps)),
   ]);
 
   logger.info("[worker] ready");
