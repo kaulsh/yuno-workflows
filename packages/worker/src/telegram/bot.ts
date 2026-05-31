@@ -56,11 +56,15 @@ export async function startTelegramBot(
 
   const initial = await resolveWorkflows();
   if (initial.botCommands.length > 0) {
-    await bot.telegram.setMyCommands(initial.botCommands);
-    logger.info(
-      { commands: initial.botCommands.map((c) => `/${c.command}`) },
-      `[telegram] registered ${initial.botCommands.length} command(s)`,
+    const registered = await withTelegramRetry("setMyCommands", () =>
+      bot!.telegram.setMyCommands(initial.botCommands),
     );
+    if (registered !== undefined) {
+      logger.info(
+        { commands: initial.botCommands.map((c) => `/${c.command}`) },
+        `[telegram] registered ${initial.botCommands.length} command(s)`,
+      );
+    }
   }
 
   bot.on(message("text"), async (ctx: Context) => {
@@ -108,7 +112,6 @@ export async function startTelegramBot(
       { cmd, workflowId, chatId },
       `[telegram] /${cmd} → workflow ${workflowId}`,
     );
-
   });
 
   bot.launch({ dropPendingUpdates: true });
@@ -136,4 +139,69 @@ export function getSendTelegram():
 
 export function stopTelegramBot(): void {
   bot?.stop("SIGTERM");
+}
+
+const TRANSIENT_NETWORK_CODES = new Set([
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "EPIPE",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ENETUNREACH",
+]);
+
+function isTransientNetworkError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as {
+    code?: string;
+    errno?: string;
+    type?: string;
+    message?: string;
+  };
+  if (e.code && TRANSIENT_NETWORK_CODES.has(e.code)) return true;
+  if (e.errno && TRANSIENT_NETWORK_CODES.has(e.errno)) return true;
+  if (e.type === "system" && e.code && TRANSIENT_NETWORK_CODES.has(e.code)) {
+    return true;
+  }
+  const msg = e.message ?? "";
+  return /ECONNRESET|ETIMEDOUT|socket hang up/i.test(msg);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Retries transient Telegram API failures; returns undefined if all attempts fail. */
+async function withTelegramRetry<T>(
+  label: string,
+  fn: () => Promise<T>,
+  opts?: { maxAttempts?: number; baseDelayMs?: number },
+): Promise<T | undefined> {
+  const maxAttempts = opts?.maxAttempts ?? 5;
+  const baseDelayMs = opts?.baseDelayMs ?? 1000;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const transient = isTransientNetworkError(err);
+      if (!transient || attempt === maxAttempts) {
+        logger.warn(
+          { err, attempt, maxAttempts, label },
+          transient
+            ? `[telegram] ${label} failed after ${maxAttempts} attempts — continuing`
+            : `[telegram] ${label} failed — continuing`,
+        );
+        return undefined;
+      }
+      const delayMs = baseDelayMs * 2 ** (attempt - 1);
+      logger.warn(
+        { err, attempt, delayMs, label },
+        `[telegram] ${label} failed (transient) — retrying`,
+      );
+      await sleep(delayMs);
+    }
+  }
+  return undefined;
 }

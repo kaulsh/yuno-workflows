@@ -1,7 +1,17 @@
 import { nanoid } from "nanoid";
 import { RunEventSchema, type RunEvent } from "@workspace/shared";
 import { EX_RUN_EVENTS } from "../topology.js";
-import type { ConfirmChannel } from "amqplib";
+import type { Channel, ConfirmChannel } from "amqplib";
+
+/** Idempotent — safe to call before every publish or SSE bind. */
+export async function assertRunEventsExchange(
+  channel: Channel | ConfirmChannel,
+): Promise<void> {
+  await channel.assertExchange(EX_RUN_EVENTS, "topic", {
+    durable: true,
+    autoDelete: false,
+  });
+}
 
 /**
  * Publishes a Zod-validated run event to the `run.events` topic exchange.
@@ -25,6 +35,7 @@ export async function publishRunEvent(
   const validated = RunEventSchema.parse(event);
   const routingKey = `run.${runId}.${validated.type}`;
   const messageId = nanoid();
+  await assertRunEventsExchange(channel);
   channel.publish(
     EX_RUN_EVENTS,
     routingKey,

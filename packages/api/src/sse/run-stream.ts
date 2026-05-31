@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import type { Channel, ChannelModel } from "amqplib";
 import type { PrismaClient } from "@workspace/db-adapter";
-import { EX_RUN_EVENTS } from "@workspace/rmq";
+import { assertRunEventsExchange, EX_RUN_EVENTS } from "@workspace/rmq";
 import { RunEventSchema, RunSnapshotSchema, logger } from "@workspace/shared";
 import { loadRunSnapshot } from "../lib/snapshot.js";
 
@@ -50,7 +50,7 @@ export async function createRunStreamHandler(
       );
 
       channel = await connection.createChannel();
-      await channel.assertExchange(EX_RUN_EVENTS, "topic", { durable: true });
+      await assertRunEventsExchange(channel);
       await channel.assertQueue(queueName, {
         exclusive: true,
         autoDelete: true,

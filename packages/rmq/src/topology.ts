@@ -6,7 +6,7 @@
  *
  * Topology is brought up lazily:
  *   - Durable queues: asserted by executeEventSubscriber on worker startup.
- *   - SSE exchange (run.events): asserted inline by createRunStreamHandler.
+ *   - run.events: asserted by assertRunEventsExchange (publish + SSE).
  *   - Publisher exchanges: asserted inline wherever a publish channel is
  *     created (see api/src/main.ts).
  */
