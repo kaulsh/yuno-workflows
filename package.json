@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "seed": "pnpm --filter @workspace/db-adapter seed",
+    "seed": "pnpm --filter @workspace/db-adapter prisma:seed",
     "test": "pnpm --recursive test",
     "start:be": "export FORCE_COLOR=1 && pnpm run --stream --filter @workspace/* start",
     "start:fe": "pnpm --filter web dev",
