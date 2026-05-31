@@ -11,12 +11,7 @@ Configure AI agents (prompt, model, tools, skills, memory, guardrails, channels)
 
 ## Demo Video
 
-<p align="center">
-  <video src="./assets/demo.mp4" controls style="max-width: 800px; width: 100%; display: block; margin: 0 auto;">
-    Your browser does not support the video tag.
-  </video>
-</p>
-
+**Watch the demo video [here](https://www.youtube.com/watch?v=s0PH8V-RgO4).**
 
 ## Quick start
 
