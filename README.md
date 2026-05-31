@@ -2,13 +2,19 @@
 
 Configure AI agents (prompt, model, tools, skills, memory, guardrails, channels), compose them into cyclic graph workflows, and run them on a durable runtime with async inter-agent messaging, live observability, and Telegram as an external channel.
 
----
-
 <p align="center">
   <img src="./assets/image_1_workflow.png" style="max-width: 800px; width: 100%; display: block; margin: 0 auto;" />
 </p>
 <p align="center">
   <img src="./assets/image_2_run.png" style="max-width: 800px; width: 100%; display: block; margin: 0 auto;" />
+</p>
+
+## Demo Video
+
+<p align="center">
+  <video src="./assets/demo.mp4" controls style="max-width: 800px; width: 100%; display: block; margin: 0 auto;">
+    Your browser does not support the video tag.
+  </video>
 </p>
 
 
