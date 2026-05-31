@@ -525,6 +525,23 @@ function NodeConfigPanel({
   return null;
 }
 
+const DEFAULT_SCHEDULE_CRON = "0 9 * * MON-FRI";
+
+function defaultTriggerConfig(
+  type: TriggerType,
+  workflowName: string,
+): TriggerConfig {
+  if (type === "manual") return { source: "manual" };
+  if (type === "telegram_message") {
+    return {
+      source: "telegram",
+      command: `/${snakeCase(workflowName)}`,
+      helpText: `Run ${workflowName}`,
+    };
+  }
+  return { source: "schedule", cron: DEFAULT_SCHEDULE_CRON };
+}
+
 // ─── Main Builder ─────────────────────────────────────────────────────────────
 
 function WorkflowBuilder() {
@@ -541,7 +558,11 @@ function WorkflowBuilder() {
   const [name, setName] = useState("Untitled Workflow");
   const [description, setDescription] = useState("");
   const [triggerType, setTriggerType] = useState<TriggerType>("manual");
+  const [triggerConfig, setTriggerConfig] = useState<TriggerConfig>({
+    source: "manual",
+  });
   const [maxSteps, setMaxSteps] = useState(25);
+  const [isTemplate, setIsTemplate] = useState(false);
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node>([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -558,7 +579,9 @@ function WorkflowBuilder() {
       setName(wf.name);
       setDescription(wf.description);
       setTriggerType(wf.triggerType);
+      setTriggerConfig(wf.triggerConfig);
       setMaxSteps(wf.maxSteps);
+      setIsTemplate(wf.isTemplate);
 
       const nameMap: Record<string, string> = {};
       for (const a of agentsQuery.data) nameMap[a.id] = a.name;
@@ -634,11 +657,9 @@ function WorkflowBuilder() {
     setSelectedNode((prev) => (prev?.id === id ? { ...prev, data } : prev));
   }
 
-  function buildTriggerConfig(name: string, type: TriggerType): TriggerConfig {
-    if (type === "manual") return { source: "manual" };
-    if (type === "telegram_message")
-      return { source: "telegram", command: `/${snakeCase(name)}`, helpText: `Run ${name}` };
-    return { source: "schedule", cron: "0 9 * * MON-FRI" };
+  function handleTriggerTypeChange(type: TriggerType) {
+    setTriggerType(type);
+    setTriggerConfig(defaultTriggerConfig(type, name));
   }
 
   function validate(): string[] {
@@ -678,11 +699,12 @@ function WorkflowBuilder() {
       name: name.trim(),
       description,
       triggerType,
-      triggerConfig: buildTriggerConfig(name, triggerType),
+      triggerConfig,
       nodes: wfNodes,
       edges: wfEdges,
       entryNodeId,
       maxSteps,
+      isTemplate,
     };
 
     if (isNew) {
@@ -746,26 +768,11 @@ function WorkflowBuilder() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="flex items-center gap-2">
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="h-8 w-52 font-semibold"
-          />
-          <Select
-            value={triggerType}
-            onValueChange={(v) => setTriggerType(v as TriggerType)}
-          >
-            <SelectTrigger className="h-8 w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="manual">Manual</SelectItem>
-              <SelectItem value="telegram_message">Telegram</SelectItem>
-              <SelectItem value="schedule">Schedule</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="h-8 w-52 font-semibold"
+        />
         <Separator orientation="vertical" className="h-6" />
         <div className="flex items-center gap-1.5">
           <Button variant="outline" size="sm" onClick={() => addNode("agent")}>
@@ -848,7 +855,7 @@ function WorkflowBuilder() {
               onUpdate={updateNodeData}
             />
             {!selectedNode ? (
-              <div className="p-4 space-y-3 border-t">
+              <div className="p-4 space-y-4 border-t">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Workflow
                 </p>
@@ -866,6 +873,93 @@ function WorkflowBuilder() {
                     your workflow list so you can tell runs apart at a glance.
                   </FieldHint>
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Trigger</Label>
+                  <Select
+                    value={triggerType}
+                    onValueChange={(v) =>
+                      handleTriggerTypeChange(v as TriggerType)
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Manual</SelectItem>
+                      <SelectItem value="telegram_message">Telegram</SelectItem>
+                      <SelectItem value="schedule">Schedule</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FieldHint>
+                    How this workflow is started. Manual runs only from the Run
+                    button or API. Telegram and Schedule start runs
+                    automatically when configured.
+                  </FieldHint>
+                </div>
+                {triggerType === "schedule" &&
+                triggerConfig.source === "schedule" ? (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Cron expression</Label>
+                    <Input
+                      value={triggerConfig.cron}
+                      onChange={(e) =>
+                        setTriggerConfig({
+                          source: "schedule",
+                          cron: e.target.value,
+                        })
+                      }
+                      className="h-8 font-mono text-xs"
+                      placeholder={DEFAULT_SCHEDULE_CRON}
+                    />
+                    <FieldHint>
+                      Standard cron syntax (minute, hour, day, month, weekday).
+                      The worker checks about once a minute and starts this
+                      workflow when the expression matches.
+                    </FieldHint>
+                  </div>
+                ) : null}
+                {triggerType === "telegram_message" &&
+                triggerConfig.source === "telegram" ? (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Command</Label>
+                      <Input
+                        value={triggerConfig.command}
+                        onChange={(e) =>
+                          setTriggerConfig({
+                            ...triggerConfig,
+                            command: e.target.value,
+                          })
+                        }
+                        className="h-8 font-mono text-xs"
+                        placeholder="/my_workflow"
+                      />
+                      <FieldHint>
+                        The slash command users type in Telegram (for example
+                        /thesis). Must start with / and match what the worker
+                        registers on startup.
+                      </FieldHint>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Help text</Label>
+                      <Input
+                        value={triggerConfig.helpText}
+                        onChange={(e) =>
+                          setTriggerConfig({
+                            ...triggerConfig,
+                            helpText: e.target.value,
+                          })
+                        }
+                        className="h-8 text-xs"
+                        placeholder="Run my workflow"
+                      />
+                      <FieldHint>
+                        Short description shown in Telegram’s command menu when
+                        users tap / to see available commands.
+                      </FieldHint>
+                    </div>
+                  </>
+                ) : null}
                 <div className="space-y-1.5">
                   <Label className="text-xs">Max Steps</Label>
                   <Input

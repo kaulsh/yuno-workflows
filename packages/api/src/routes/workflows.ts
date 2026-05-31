@@ -90,7 +90,9 @@ export function workflowsRoutes(deps: ApiDeps): Hono {
             edges: body.edges as object,
             entryNodeId: body.entryNodeId,
             maxSteps: body.maxSteps,
-            isTemplate: body.isTemplate ?? false,
+            ...(body.isTemplate !== undefined
+              ? { isTemplate: body.isTemplate }
+              : {}),
           },
         });
         return c.json(serializeWorkflow(row));

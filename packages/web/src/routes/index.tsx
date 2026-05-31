@@ -4,7 +4,7 @@ import {
   Activity,
   DollarSign,
   Play,
-  LayoutTemplate,
+  GitBranch,
   ArrowRight,
   CheckCircle2,
   XCircle,
@@ -79,8 +79,7 @@ function Dashboard() {
   });
 
   const runs = runsQuery.data?.runs ?? [];
-  const templates =
-    workflowsQuery.data?.filter((w) => w.isTemplate).slice(0, 6) ?? [];
+  const workflows = (workflowsQuery.data ?? []).slice(0, 6);
 
   const totalCostToday = runs
     .filter((r) => {
@@ -226,10 +225,9 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Template Quick-Links */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Workflow Templates</CardTitle>
+            <CardTitle className="text-base">Workflows</CardTitle>
             <Button variant="ghost" size="sm" asChild>
               <Link to="/workflows">
                 Browse all <ArrowRight className="ml-1 h-3.5 w-3.5" />
@@ -243,9 +241,9 @@ function Dashboard() {
                   <Skeleton key={i} className="h-14 w-full" />
                 ))}
               </div>
-            ) : templates.length === 0 ? (
+            ) : workflows.length === 0 ? (
               <div className="text-center text-muted-foreground text-sm py-6">
-                No templates yet.{" "}
+                No workflows yet.{" "}
                 <Link
                   to="/workflows"
                   className="text-primary underline underline-offset-4"
@@ -255,12 +253,12 @@ function Dashboard() {
               </div>
             ) : (
               <div className="space-y-2">
-                {templates.map((wf) => (
+                {workflows.map((wf) => (
                   <div
                     key={wf.id}
                     className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors group"
                   >
-                    <LayoutTemplate className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <GitBranch className="h-4 w-4 text-muted-foreground shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{wf.name}</p>
                       <p className="text-xs text-muted-foreground truncate">

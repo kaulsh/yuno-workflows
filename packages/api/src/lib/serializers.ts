@@ -49,7 +49,6 @@ export function serializeAgent(row: DbAgent): Agent {
     memory: MemoryConfigSchema.parse(row.memory),
     guardrails: GuardrailsConfigSchema.parse(row.guardrails),
     channels: row.channels,
-    scheduleCron: row.scheduleCron,
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt),
   });

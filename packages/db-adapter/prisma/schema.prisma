@@ -20,7 +20,6 @@ model Agent {
   memory          Json
   guardrails      Json
   channels        String[] @default(["internal"])
-  scheduleCron    String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

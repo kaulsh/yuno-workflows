@@ -37,7 +37,6 @@ export const AgentSchema = z.object({
   memory: MemoryConfigSchema,
   guardrails: GuardrailsConfigSchema,
   channels: z.array(ChannelSchema).default(["internal"]),
-  scheduleCron: z.string().nullable().optional(),
   createdAt: IsoDateTimeSchema,
   updatedAt: IsoDateTimeSchema,
 });

@@ -40,7 +40,6 @@ export function agentsRoutes({ prisma }: ApiDeps): Hono {
           memory: body.memory,
           guardrails: body.guardrails,
           channels: body.channels,
-          scheduleCron: body.scheduleCron ?? null,
         },
       });
       return c.json(serializeAgent(row), 201);
@@ -87,7 +86,6 @@ export function agentsRoutes({ prisma }: ApiDeps): Hono {
             memory: body.memory,
             guardrails: body.guardrails,
             channels: body.channels,
-            scheduleCron: body.scheduleCron ?? null,
           },
         });
         return c.json(serializeAgent(row));

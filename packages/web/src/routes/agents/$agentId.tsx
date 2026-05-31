@@ -109,7 +109,6 @@ const DEFAULT_FORM: AgentFormState = {
     piiRedaction: false,
   },
   channels: ["internal"],
-  scheduleCron: null,
 };
 
 function agentToFormState(agent: Agent): AgentFormState {
@@ -125,7 +124,6 @@ function agentToFormState(agent: Agent): AgentFormState {
     memory: agent.memory,
     guardrails: agent.guardrails,
     channels: agent.channels,
-    scheduleCron: agent.scheduleCron ?? null,
   };
 }
 
@@ -819,36 +817,6 @@ function AgentForm() {
                 {form.channels.includes("telegram")
                   ? "This agent can reply to the user in the Telegram chat that started the workflow. Sending to Telegram is enabled automatically."
                   : "When turned on, the agent can send updates back to the user's Telegram chat for workflows triggered from Telegram."}
-              </FieldHint>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Schedule */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Schedule (optional)</CardTitle>
-            <CardDescription>
-              Automatically start workflows that use this agent on a repeating
-              timetable.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1.5">
-              <Label htmlFor="scheduleCron">Cron Expression</Label>
-              <Input
-                id="scheduleCron"
-                value={form.scheduleCron ?? ""}
-                onChange={(e) =>
-                  patch({ scheduleCron: e.target.value || null })
-                }
-                placeholder="0 9 * * MON-FRI"
-              />
-              <FieldHint>
-                Standard cron syntax (minute, hour, day, month, weekday). The
-                worker checks about once a minute and starts matching workflows
-                with a schedule trigger. Leave empty if this agent should only
-                run when started manually or from Telegram.
               </FieldHint>
             </div>
           </CardContent>

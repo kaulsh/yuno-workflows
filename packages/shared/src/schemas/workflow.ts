@@ -116,24 +116,33 @@ export const WorkflowSchema = z
     );
   });
 
-export const CreateWorkflowInputSchema = z
-  .object({
-    name: z.string().min(1),
-    description: z.string(),
-    triggerType: TriggerTypeSchema,
-    triggerConfig: TriggerConfigSchema,
-    nodes: z.array(WorkflowNodeSchema).min(1),
-    edges: z.array(WorkflowEdgeSchema),
-    entryNodeId: z.string().min(1),
-    maxSteps: z.number().int().positive().default(25),
-    isTemplate: z.boolean().default(false).optional(),
-  })
-  .superRefine((workflow, ctx) => {
-    validateTriggerAlignment(workflow.triggerType, workflow.triggerConfig, ctx);
-    validateWorkflowGraph(workflow, ctx);
-  });
+const WorkflowInputFieldsSchema = z.object({
+  name: z.string().min(1),
+  description: z.string(),
+  triggerType: TriggerTypeSchema,
+  triggerConfig: TriggerConfigSchema,
+  nodes: z.array(WorkflowNodeSchema).min(1),
+  edges: z.array(WorkflowEdgeSchema),
+  entryNodeId: z.string().min(1),
+  maxSteps: z.number().int().positive().default(25),
+});
 
-export const UpdateWorkflowInputSchema = CreateWorkflowInputSchema;
+function refineWorkflowInput(
+  workflow: z.infer<typeof WorkflowInputFieldsSchema>,
+  ctx: z.RefinementCtx,
+): void {
+  validateTriggerAlignment(workflow.triggerType, workflow.triggerConfig, ctx);
+  validateWorkflowGraph(workflow, ctx);
+}
+
+export const CreateWorkflowInputSchema = WorkflowInputFieldsSchema.extend({
+  isTemplate: z.boolean().default(false).optional(),
+}).superRefine(refineWorkflowInput);
+
+/** No default on isTemplate so PUT does not clear the flag when the field is absent. */
+export const UpdateWorkflowInputSchema = WorkflowInputFieldsSchema.extend({
+  isTemplate: z.boolean().optional(),
+}).superRefine(refineWorkflowInput);
 
 export const CloneWorkflowInputSchema = z.object({
   name: z.string().min(1),

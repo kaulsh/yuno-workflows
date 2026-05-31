@@ -1,0 +1,13 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "node",
+			"request": "attach",
+			"name": "Attach to worker",
+			"address": "localhost",
+			"port": 11001,
+			"timeout": 5000
+		},
+	]
+}

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx watch --clear-screen=false --env-file=../../.env src/main.ts | pino-pretty --config ../../.pino-prettyrc",
+    "start": "tsx watch --clear-screen=false --env-file=../../.env --inspect=127.0.0.1:11001 src/main.ts | pino-pretty --config ../../.pino-prettyrc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

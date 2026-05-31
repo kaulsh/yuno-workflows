@@ -211,7 +211,7 @@ function SkillsPage() {
 
       {/* Create/Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={(o) => !o && closeDialog()}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{creating ? "New Skill" : "Edit Skill"}</DialogTitle>
           </DialogHeader>
@@ -242,7 +242,7 @@ function SkillsPage() {
                   setForm((f) => ({ ...f, instructions: e.target.value }))
                 }
                 placeholder="When performing web research, always verify sources..."
-                rows={4}
+                rows={12}
               />
             </div>
             <div className="space-y-2">
